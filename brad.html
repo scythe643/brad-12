@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Team Entry & Live Draw</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        .team-list {
+            margin-top: 20px;
+        }
+        .team {
+            margin: 5px 0;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #draw-result {
+            margin-top: 30px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tournament Team Entry & Live Draw</h1>
+    <p>Enter your team names and players below and watch the live updates!</p>
+
+    <input type="text" id="teamName" placeholder="Enter team name">
+    <textarea id="playerNames" placeholder="Enter player names (comma-separated)"></textarea>
+    <button onclick="addTeam()">Add Team</button>
+
+    <div class="team-list" id="teamList">
+        <h2>Team List</h2>
+        <ul id="teamNames"></ul>
+    </div>
+
+    <input type="number" id="numTeams" placeholder="Number of teams to draw" min="1">
+    <button onclick="conductDraw()">Conduct Live Draw</button>
+
+    <div id="draw-result"></div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const teamsRef = database.ref('teams');
+
+        // Add a new team to Firebase
+        function addTeam() {
+            const teamNameInput = document.getElementById('teamName');
+            const playerNamesInput = document.getElementById('playerNames');
+            const teamName = teamNameInput.value.trim();
+            const playerNames = playerNamesInput.value.trim();
+
+            if (teamName === '' || playerNames === '') {
+                alert('Please enter both a team name and player names.');
+                return;
+            }
+
+            const teamData = {
+                name: teamName,
+                players: playerNames.split(',').map(player => player.trim())
+            };
+
+            teamsRef.push(teamData);
+            teamNameInput.value = '';
+            playerNamesInput.value = '';
+        }
+
+        // Listen for real-time updates to the team list
+        teamsRef.on('value', (snapshot) => {
+            const teamList = document.getElementById('teamNames');
+            teamList.innerHTML = '';
+
+            const teams = snapshot.val();
+            if (teams) {
+                Object.values(teams).forEach(team => {
+                    const li = document.createElement('li');
+                    li.textContent = `${team.name} - Players: ${team.players.join(', ')}`;
+                    teamList.appendChild(li);
+                });
+            }
+        });
+
+        // Conduct a random draw
+        function conductDraw() {
+            const numTeamsInput = document.getElementById('numTeams');
+            const numTeamsToDraw = parseInt(numTeamsInput.value, 10);
+
+            if (isNaN(numTeamsToDraw) || numTeamsToDraw < 1) {
+                alert('Please enter a valid number of teams to draw.');
+                return;
+            }
+
+            teamsRef.once('value', (snapshot) => {
+                const teams = snapshot.val();
+                if (!teams) {
+                    alert('No teams have been entered. Please add teams first.');
+                    return;
+                }
+
+                const teamArray = Object.values(teams);
+                if (numTeamsToDraw > teamArray.length) {
+                    alert('Not enough teams to draw the requested number.');
+                    return;
+                }
+
+                const drawnTeams = [];
+                while (drawnTeams.length < numTeamsToDraw) {
+                    const randomIndex = Math.floor(Math.random() * teamArray.length);
+                    const selectedTeam = teamArray.splice(randomIndex, 1)[0];
+                    drawnTeams.push(`${selectedTeam.name} - Players: ${selectedTeam.players.join(', ')}`);
+                }
+
+                document.getElementById('draw-result').textContent = `The drawn teams are: ${drawnTeams.join('; ')}`;
+            });
+        }
+    </script>
+</body>
+</html>
